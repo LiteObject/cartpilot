@@ -5,7 +5,7 @@ import type { BootstrapData, ExtensionSettings, ItemResult, ProgressEvent, RunSt
 interface PanelElements {
     siteBadge: HTMLSpanElement;
     statusBadge: HTMLSpanElement;
-    llmSettingsDetails: HTMLDetailsElement;
+    llmSettingsSummary: HTMLSpanElement;
     itemsInput: HTMLTextAreaElement;
     endpointInput: HTMLInputElement;
     modelInput: HTMLSelectElement;
@@ -113,9 +113,12 @@ function scheduleSettingsSave(delayMs = 350): void {
 async function fetchAndPopulateModels(preserveSelection?: string, saveAfterLoad = false): Promise<void> {
     const endpoint = elements.endpointInput.value.trim();
     if (!endpoint) {
+        updateLlmSettingsSummary();
+
         if (saveAfterLoad) {
             await persistSettingsIfNeeded();
         }
+
         return;
     }
 
@@ -127,7 +130,9 @@ async function fetchAndPopulateModels(preserveSelection?: string, saveAfterLoad 
 
     try {
         const response = await fetch(tagsUrl);
-        if (!response.ok) throw new Error(`${response.status}`);
+        if (!response.ok) {
+            throw new Error(`${response.status}`);
+        }
 
         const data = (await response.json()) as OllamaTagsResponse;
         const models = data.models ?? [];
@@ -135,29 +140,30 @@ async function fetchAndPopulateModels(preserveSelection?: string, saveAfterLoad 
         elements.modelInput.replaceChildren();
 
         if (models.length === 0) {
-            const opt = document.createElement("option");
-            opt.value = "";
-            opt.disabled = true;
-            opt.selected = true;
-            opt.textContent = "No models found";
-            elements.modelInput.append(opt);
+            const option = document.createElement("option");
+            option.value = "";
+            option.disabled = true;
+            option.selected = true;
+            option.textContent = "No models found";
+            elements.modelInput.append(option);
+            updateLlmSettingsSummary();
             return;
         }
 
         const placeholder = document.createElement("option");
         placeholder.value = "";
         placeholder.disabled = true;
-        placeholder.textContent = "Select a model\u2026";
+        placeholder.textContent = "Select a model…";
         elements.modelInput.append(placeholder);
 
         for (const model of models) {
-            const opt = document.createElement("option");
-            opt.value = model.name;
-            opt.textContent = model.name;
-            elements.modelInput.append(opt);
+            const option = document.createElement("option");
+            option.value = model.name;
+            option.textContent = model.name;
+            elements.modelInput.append(option);
         }
 
-        if (preserveSelection && models.some((m) => m.name === preserveSelection)) {
+        if (preserveSelection && models.some((model) => model.name === preserveSelection)) {
             elements.modelInput.value = preserveSelection;
         } else {
             placeholder.selected = true;
@@ -166,14 +172,16 @@ async function fetchAndPopulateModels(preserveSelection?: string, saveAfterLoad 
         lastFetchedEndpoint = endpoint;
     } catch {
         elements.modelInput.replaceChildren();
-        const opt = document.createElement("option");
-        opt.value = preserveSelection ?? "";
-        opt.textContent = preserveSelection ? `${preserveSelection} (offline)` : "Failed to load models";
-        elements.modelInput.append(opt);
+        const option = document.createElement("option");
+        option.value = preserveSelection ?? "";
+        option.textContent = preserveSelection ? `${preserveSelection} (offline)` : "Failed to load models";
+        elements.modelInput.append(option);
     } finally {
         elements.modelInput.disabled = false;
         elements.refreshModelsButton.disabled = false;
     }
+
+    updateLlmSettingsSummary();
 
     if (saveAfterLoad) {
         await persistSettingsIfNeeded();
@@ -226,10 +234,23 @@ function readSettingsFromForm(): ExtensionSettings {
     };
 }
 
+function updateLlmSettingsSummary(settings: ExtensionSettings = readSettingsFromForm()): void {
+    const model = settings.llm.model.trim();
+    elements.llmSettingsSummary.textContent = model ? `Model: ${model}` : "Heuristic fallback";
+
+    if (model) {
+        elements.llmSettingsSummary.removeAttribute("data-tone");
+        return;
+    }
+
+    elements.llmSettingsSummary.dataset.tone = "warn";
+}
+
 function applySettingsToForm(settings: ExtensionSettings): void {
     elements.endpointInput.value = settings.llm.endpoint;
     elements.temperatureInput.value = settings.llm.temperature.toString();
     elements.dryRunToggle.checked = settings.run.dryRun;
+    updateLlmSettingsSummary(settings);
     void fetchAndPopulateModels(settings.llm.model);
 }
 
@@ -475,21 +496,6 @@ async function handleConfirmation(decision: "confirm" | "skip" | "cancel"): Prom
 }
 
 function bindEvents(): void {
-    document.addEventListener("click", (event) => {
-        if (!elements.llmSettingsDetails.open) return;
-
-        const target = event.target;
-        if (target instanceof Node && !elements.llmSettingsDetails.contains(target)) {
-            elements.llmSettingsDetails.open = false;
-        }
-    });
-
-    document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && elements.llmSettingsDetails.open) {
-            elements.llmSettingsDetails.open = false;
-        }
-    });
-
     elements.startButton.addEventListener("click", () => {
         void handleStartRun().catch((error) => setFeedback(String(error), "danger"));
     });
@@ -520,7 +526,10 @@ function bindEvents(): void {
 
     let endpointDebounce: ReturnType<typeof setTimeout> | null = null;
     elements.endpointInput.addEventListener("input", () => {
-        if (endpointDebounce) clearTimeout(endpointDebounce);
+        if (endpointDebounce) {
+            clearTimeout(endpointDebounce);
+        }
+
         endpointDebounce = setTimeout(() => {
             const current = elements.endpointInput.value.trim();
             if (current && current !== lastFetchedEndpoint) {
@@ -529,6 +538,7 @@ function bindEvents(): void {
                 );
                 return;
             }
+
             scheduleSettingsSave(0);
         }, 600);
     });
@@ -546,6 +556,7 @@ function bindEvents(): void {
     });
 
     elements.modelInput.addEventListener("change", () => {
+        updateLlmSettingsSummary();
         scheduleSettingsSave(0);
     });
 
@@ -562,7 +573,7 @@ function init(): void {
     elements = {
         siteBadge: getElement("siteBadge"),
         statusBadge: getElement("statusBadge"),
-        llmSettingsDetails: getElement("llmSettingsDetails"),
+        llmSettingsSummary: getElement("llmSettingsSummary"),
         itemsInput: getElement("itemsInput"),
         endpointInput: getElement("endpointInput"),
         modelInput: getElement("modelInput"),

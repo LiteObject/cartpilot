@@ -46,7 +46,6 @@
         }
 
         .hero {
-            position: relative;
             padding: 18px;
             border-radius: 20px;
             background:
@@ -55,18 +54,6 @@
                 rgba(255, 252, 245, 0.9);
             border: 1px solid var(--line);
             box-shadow: var(--shadow);
-        }
-
-        .hero-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .hero-copy {
-            flex: 1;
-            min-width: 0;
         }
 
         .hero h1 {
@@ -156,7 +143,8 @@
         }
 
         textarea:focus,
-        input:focus {
+        input:focus,
+        select:focus {
             outline: 2px solid rgba(29, 122, 67, 0.24);
             border-color: rgba(29, 122, 67, 0.38);
         }
@@ -277,27 +265,16 @@
             color: var(--muted);
         }
 
-        [hidden] {
-            display: none !important;
+        .settings-accordion {
+            margin-bottom: 12px;
+            border-radius: 16px;
+            border: 1px solid rgba(41, 67, 47, 0.12);
+            background: rgba(255, 255, 255, 0.62);
+            overflow: hidden;
         }
 
-        .hero-settings {
-            position: relative;
-            flex-shrink: 0;
-        }
-
-        .hero-settings summary {
-            min-height: 44px;
+        .settings-accordion summary {
             padding: 10px 14px;
-            border-radius: 12px;
-            border: 1px solid rgba(41, 67, 47, 0.14);
-            background: rgba(255, 255, 255, 0.58);
-            box-shadow: 0 10px 26px rgba(49, 57, 43, 0.08);
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: 0.1em;
-            color: var(--accent-strong);
-            text-transform: uppercase;
             cursor: pointer;
             user-select: none;
             list-style: none;
@@ -307,43 +284,65 @@
             justify-content: space-between;
         }
 
-        .hero-settings summary::-webkit-details-marker {
+        .settings-accordion summary::-webkit-details-marker {
             display: none;
         }
 
-        .hero-settings summary::after {
+        .settings-accordion summary::after {
             content: "";
             width: 8px;
             height: 8px;
-            border-right: 2px solid currentColor;
-            border-bottom: 2px solid currentColor;
+            border-right: 2px solid var(--accent-strong);
+            border-bottom: 2px solid var(--accent-strong);
             transform: rotate(45deg) translateY(-1px);
             transition: transform 180ms ease;
+            flex-shrink: 0;
         }
 
-        .hero-settings[open] summary::after {
+        .settings-accordion[open] summary::after {
             transform: rotate(225deg) translateY(-1px);
         }
 
-        .hero-settings-panel {
-            position: absolute;
-            top: calc(100% + 12px);
-            right: 0;
-            z-index: 5;
-            width: min(320px, calc(100vw - 72px));
-            padding: 14px 14px 4px;
-            border-radius: 16px;
-            background: rgba(255, 252, 245, 0.98);
-            border: 1px solid rgba(41, 67, 47, 0.12);
-            box-shadow: 0 18px 42px rgba(49, 57, 43, 0.18);
-            backdrop-filter: blur(14px);
+        .settings-accordion[open] summary {
+            border-bottom: 1px solid rgba(41, 67, 47, 0.12);
+            background: rgba(255, 255, 255, 0.72);
         }
 
-        .hero-settings-title {
+        .settings-accordion-copy {
+            min-width: 0;
+            display: grid;
+            gap: 2px;
+        }
+
+        .settings-accordion-title {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            color: var(--accent-strong);
+            text-transform: uppercase;
+        }
+
+        .settings-accordion-meta {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--muted);
+        }
+
+        .settings-accordion-meta[data-tone="warn"] {
+            color: #9a4b0d;
+        }
+
+        .settings-accordion-panel {
+            padding: 14px 14px 4px;
+        }
+
+        .settings-accordion-title-row {
             margin-bottom: 10px;
         }
 
-        .hero-settings-panel .llm-fields {
+        .settings-accordion-panel .llm-fields {
             margin-top: 0;
         }
 
@@ -356,11 +355,6 @@
             color: var(--ink);
             background: rgba(255, 255, 255, 0.8);
             appearance: auto;
-        }
-
-        select:focus {
-            outline: 2px solid rgba(29, 122, 67, 0.24);
-            border-color: rgba(29, 122, 67, 0.38);
         }
 
         .model-field {
@@ -381,29 +375,13 @@
             line-height: 1;
         }
 
+        [hidden] {
+            display: none !important;
+        }
+
         @media (min-width: 520px) {
             .grid {
                 grid-template-columns: 1fr 1fr;
-            }
-        }
-
-        @media (max-width: 519px) {
-            .hero-header {
-                flex-wrap: wrap;
-            }
-
-            .hero-settings {
-                width: 100%;
-            }
-
-            .hero-settings summary {
-                width: 100%;
-            }
-
-            .hero-settings-panel {
-                left: 0;
-                right: auto;
-                width: 100%;
             }
         }
     </style>
@@ -412,44 +390,8 @@
 <body>
     <main class="shell">
         <section class="hero">
-            <div class="hero-header">
-                <div class="hero-copy">
-                    <h1>CartPilot</h1>
-                    <p>Local-model shopping assistant with deterministic cart automation.</p>
-                </div>
-
-                <details id="llmSettingsDetails" class="hero-settings">
-                    <summary>LLM Settings</summary>
-                    <div class="hero-settings-panel">
-                        <p class="section-title hero-settings-title">LLM Settings</p>
-                        <div class="llm-fields">
-                            <div class="grid">
-                                <label class="field">
-                                    <span>Ollama endpoint</span>
-                                    <input id="endpointInput" type="text"
-                                        placeholder="http://127.0.0.1:11434/api/generate" />
-                                </label>
-
-                                <label class="field">
-                                    <span>Model</span>
-                                    <div class="model-field">
-                                        <select id="modelInput">
-                                            <option value="" disabled selected>Select a model…</option>
-                                        </select>
-                                        <button id="refreshModelsButton" class="ghost" type="button"
-                                            title="Refresh model list">↻</button>
-                                    </div>
-                                </label>
-                            </div>
-
-                            <label class="field">
-                                <span>Temperature</span>
-                                <input id="temperatureInput" type="number" min="0" max="1" step="0.1" />
-                            </label>
-                        </div>
-                    </div>
-                </details>
-            </div>
+            <h1>CartPilot</h1>
+            <p>Local-model shopping assistant with deterministic cart automation.</p>
 
             <div class="badges">
                 <span id="siteBadge" class="badge">Site: loading</span>
@@ -464,6 +406,45 @@
                 <span>Items</span>
                 <textarea id="itemsInput" placeholder="milk, eggs, bread"></textarea>
             </label>
+
+            <details id="llmSettingsDetails" class="settings-accordion">
+                <summary>
+                    <span class="settings-accordion-copy">
+                        <span class="settings-accordion-title">LLM Settings</span>
+                        <span id="llmSettingsSummary" class="settings-accordion-meta">Model: loading…</span>
+                    </span>
+                </summary>
+
+                <div class="settings-accordion-panel">
+                    <p class="section-title settings-accordion-title-row">LLM Settings</p>
+
+                    <div class="llm-fields">
+                        <div class="grid">
+                            <label class="field">
+                                <span>Ollama endpoint</span>
+                                <input id="endpointInput" type="text"
+                                    placeholder="http://127.0.0.1:11434/api/generate" />
+                            </label>
+
+                            <label class="field">
+                                <span>Model</span>
+                                <div class="model-field">
+                                    <select id="modelInput">
+                                        <option value="" disabled selected>Select a model…</option>
+                                    </select>
+                                    <button id="refreshModelsButton" class="ghost" type="button"
+                                        title="Refresh model list">↻</button>
+                                </div>
+                            </label>
+                        </div>
+
+                        <label class="field">
+                            <span>Temperature</span>
+                            <input id="temperatureInput" type="number" min="0" max="1" step="0.1" />
+                        </label>
+                    </div>
+                </div>
+            </details>
 
             <div class="row">
                 <label class="toggle">
