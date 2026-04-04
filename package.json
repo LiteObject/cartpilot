@@ -1,0 +1,16 @@
+{
+  "name": "cartpilot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome extension for building grocery carts with deterministic automation and local LLM support.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.325",
+    "esbuild": "^0.25.3",
+    "typescript": "^5.8.3"
+  }
+}

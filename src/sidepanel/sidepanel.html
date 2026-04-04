@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CartPilot</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: linear-gradient(180deg, #fbf6e8 0%, #f3efe3 100%);
+            --panel: rgba(255, 252, 245, 0.92);
+            --ink: #1d2a1f;
+            --muted: #5f6d61;
+            --line: rgba(41, 67, 47, 0.12);
+            --accent: #1d7a43;
+            --accent-strong: #115d31;
+            --warm: #d96d1e;
+            --danger: #b83a32;
+            --shadow: 0 14px 38px rgba(49, 57, 43, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            min-height: 100%;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font: 14px/1.45 Aptos, "Segoe UI Variable", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background: var(--bg);
+        }
+
+        .shell {
+            min-height: 100vh;
+            padding: 18px;
+            display: grid;
+            gap: 14px;
+            align-content: start;
+        }
+
+        .hero {
+            padding: 18px;
+            border-radius: 20px;
+            background:
+                radial-gradient(circle at top right, rgba(217, 109, 30, 0.22), transparent 34%),
+                radial-gradient(circle at bottom left, rgba(29, 122, 67, 0.18), transparent 32%),
+                rgba(255, 252, 245, 0.9);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+        }
+
+        .hero h1 {
+            margin: 0;
+            font: 700 24px/1.05 Georgia, "Times New Roman", serif;
+            letter-spacing: 0.01em;
+        }
+
+        .hero p {
+            margin: 8px 0 0;
+            color: var(--muted);
+        }
+
+        .badges {
+            margin-top: 14px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            background: rgba(17, 93, 49, 0.08);
+            color: var(--accent-strong);
+        }
+
+        .badge[data-tone="warn"] {
+            background: rgba(217, 109, 30, 0.12);
+            color: #9a4b0d;
+        }
+
+        .badge[data-tone="danger"] {
+            background: rgba(184, 58, 50, 0.12);
+            color: var(--danger);
+        }
+
+        .panel {
+            padding: 16px;
+            border-radius: 18px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+        }
+
+        .section-title {
+            margin: 0 0 12px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .field {
+            display: grid;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .field span {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        textarea,
+        input {
+            width: 100%;
+            border: 1px solid rgba(41, 67, 47, 0.18);
+            border-radius: 12px;
+            padding: 11px 12px;
+            font: inherit;
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        textarea {
+            min-height: 92px;
+            resize: vertical;
+        }
+
+        textarea:focus,
+        input:focus {
+            outline: 2px solid rgba(29, 122, 67, 0.24);
+            border-color: rgba(29, 122, 67, 0.38);
+        }
+
+        .grid {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 1fr;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .toggle input {
+            width: auto;
+        }
+
+        .actions,
+        .pending-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: 0;
+            border-radius: 12px;
+            padding: 10px 14px;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .secondary {
+            background: rgba(17, 93, 49, 0.1);
+            color: var(--accent-strong);
+        }
+
+        .ghost {
+            background: rgba(95, 109, 97, 0.1);
+            color: var(--ink);
+        }
+
+        .danger {
+            background: rgba(184, 58, 50, 0.12);
+            color: var(--danger);
+        }
+
+        .feedback {
+            margin: 10px 0 0;
+            min-height: 20px;
+            color: var(--muted);
+        }
+
+        .feedback[data-tone="danger"] {
+            color: var(--danger);
+        }
+
+        .feedback[data-tone="success"] {
+            color: var(--accent-strong);
+        }
+
+        .meta {
+            color: var(--muted);
+            margin: 0 0 10px;
+        }
+
+        .list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 10px;
+        }
+
+        .list-item {
+            padding: 12px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(41, 67, 47, 0.1);
+        }
+
+        .list-item strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .list-item small {
+            color: var(--muted);
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        details.llm-settings {
+            border-top: 1px solid var(--line);
+            padding-top: 12px;
+            margin-bottom: 12px;
+        }
+
+        details.llm-settings summary {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            color: var(--muted);
+            text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        details.llm-settings summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details.llm-settings summary::before {
+            content: "\25B6";
+            font-size: 10px;
+            transition: transform 180ms ease;
+        }
+
+        details.llm-settings[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        details.llm-settings .llm-fields {
+            margin-top: 12px;
+        }
+
+        select {
+            width: 100%;
+            border: 1px solid rgba(41, 67, 47, 0.18);
+            border-radius: 12px;
+            padding: 11px 12px;
+            font: inherit;
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.8);
+            appearance: auto;
+        }
+
+        select:focus {
+            outline: 2px solid rgba(29, 122, 67, 0.24);
+            border-color: rgba(29, 122, 67, 0.38);
+        }
+
+        .model-field {
+            display: flex;
+            gap: 6px;
+            align-items: stretch;
+        }
+
+        .model-field select {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .model-field button {
+            flex-shrink: 0;
+            padding: 8px 10px;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        @media (min-width: 520px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="shell">
+        <section class="hero">
+            <h1>CartPilot</h1>
+            <p>Local-model shopping assistant with deterministic cart automation.</p>
+            <div class="badges">
+                <span id="siteBadge" class="badge">Site: loading</span>
+                <span id="statusBadge" class="badge">Idle</span>
+            </div>
+        </section>
+
+        <section class="panel">
+            <p class="section-title">Run Setup</p>
+
+            <label class="field">
+                <span>Items</span>
+                <textarea id="itemsInput" placeholder="milk, eggs, bread"></textarea>
+            </label>
+
+            <details class="llm-settings">
+                <summary>LLM Settings</summary>
+                <div class="llm-fields">
+                    <div class="grid">
+                        <label class="field">
+                            <span>Ollama endpoint</span>
+                            <input id="endpointInput" type="text" placeholder="http://127.0.0.1:11434/api/generate" />
+                        </label>
+
+                        <label class="field">
+                            <span>Model</span>
+                            <div class="model-field">
+                                <select id="modelInput">
+                                    <option value="" disabled selected>Select a model…</option>
+                                </select>
+                                <button id="refreshModelsButton" class="ghost" type="button"
+                                    title="Refresh model list">↻</button>
+                            </div>
+                        </label>
+                    </div>
+
+                    <label class="field">
+                        <span>Temperature</span>
+                        <input id="temperatureInput" type="number" min="0" max="1" step="0.1" />
+                    </label>
+                </div>
+            </details>
+
+            <div class="row">
+                <label class="toggle">
+                    <input id="dryRunToggle" type="checkbox" />
+                    Dry-run mode
+                </label>
+            </div>
+
+            <div class="actions">
+                <button id="startButton" class="primary" type="button">Start Cart Build</button>
+                <button id="cancelButton" class="secondary" type="button">Cancel</button>
+                <button id="saveButton" class="ghost" type="button">Save Settings</button>
+            </div>
+
+            <p id="feedbackText" class="feedback"></p>
+        </section>
+
+        <section id="pendingPanel" class="panel" hidden>
+            <p class="section-title">Action Needed</p>
+            <p id="pendingTitle" class="meta"></p>
+            <p id="pendingContext" class="meta"></p>
+
+            <form id="clarificationForm" hidden>
+                <label class="field">
+                    <span>Your answer</span>
+                    <input id="clarificationInput" type="text" autocomplete="off" />
+                </label>
+                <div class="pending-actions">
+                    <button id="clarificationSubmitButton" class="primary" type="submit">Submit Answer</button>
+                </div>
+            </form>
+
+            <div id="confirmationActions" class="pending-actions" hidden>
+                <button id="confirmButton" class="primary" type="button">Add to cart</button>
+                <button id="skipButton" class="secondary" type="button">Skip item</button>
+                <button id="cancelRunButton" class="danger" type="button">Cancel run</button>
+            </div>
+        </section>
+
+        <section class="panel">
+            <p class="section-title">Results</p>
+            <ul id="resultsList" class="list"></ul>
+        </section>
+
+        <section class="panel">
+            <p class="section-title">Recent Activity</p>
+            <ul id="progressList" class="list"></ul>
+        </section>
+    </main>
+
+    <script src="./sidepanel.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "CartPilot",
+  "description": "Build grocery carts with local LLM guidance and deterministic browser automation.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "storage",
+    "tabs",
+    "sidePanel",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.walmart.com/*",
+    "https://www.heb.com/*"
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "action": {
+    "default_title": "CartPilot"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.walmart.com/*",
+        "https://www.heb.com/*"
+      ],
+      "js": [
+        "content/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
