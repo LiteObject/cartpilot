@@ -46,6 +46,7 @@
         }
 
         .hero {
+            position: relative;
             padding: 18px;
             border-radius: 20px;
             background:
@@ -54,6 +55,18 @@
                 rgba(255, 252, 245, 0.9);
             border: 1px solid var(--line);
             box-shadow: var(--shadow);
+        }
+
+        .hero-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .hero-copy {
+            flex: 1;
+            min-width: 0;
         }
 
         .hero h1 {
@@ -268,42 +281,70 @@
             display: none !important;
         }
 
-        details.llm-settings {
-            border-top: 1px solid var(--line);
-            padding-top: 12px;
-            margin-bottom: 12px;
+        .hero-settings {
+            position: relative;
+            flex-shrink: 0;
         }
 
-        details.llm-settings summary {
+        .hero-settings summary {
+            min-height: 44px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(41, 67, 47, 0.14);
+            background: rgba(255, 255, 255, 0.58);
+            box-shadow: 0 10px 26px rgba(49, 57, 43, 0.08);
             font-size: 12px;
             font-weight: 800;
-            letter-spacing: 0.12em;
-            color: var(--muted);
+            letter-spacing: 0.1em;
+            color: var(--accent-strong);
             text-transform: uppercase;
             cursor: pointer;
             user-select: none;
             list-style: none;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 10px;
+            justify-content: space-between;
         }
 
-        details.llm-settings summary::-webkit-details-marker {
+        .hero-settings summary::-webkit-details-marker {
             display: none;
         }
 
-        details.llm-settings summary::before {
-            content: "\25B6";
-            font-size: 10px;
+        .hero-settings summary::after {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-right: 2px solid currentColor;
+            border-bottom: 2px solid currentColor;
+            transform: rotate(45deg) translateY(-1px);
             transition: transform 180ms ease;
         }
 
-        details.llm-settings[open] summary::before {
-            transform: rotate(90deg);
+        .hero-settings[open] summary::after {
+            transform: rotate(225deg) translateY(-1px);
         }
 
-        details.llm-settings .llm-fields {
-            margin-top: 12px;
+        .hero-settings-panel {
+            position: absolute;
+            top: calc(100% + 12px);
+            right: 0;
+            z-index: 5;
+            width: min(320px, calc(100vw - 72px));
+            padding: 14px 14px 4px;
+            border-radius: 16px;
+            background: rgba(255, 252, 245, 0.98);
+            border: 1px solid rgba(41, 67, 47, 0.12);
+            box-shadow: 0 18px 42px rgba(49, 57, 43, 0.18);
+            backdrop-filter: blur(14px);
+        }
+
+        .hero-settings-title {
+            margin-bottom: 10px;
+        }
+
+        .hero-settings-panel .llm-fields {
+            margin-top: 0;
         }
 
         select {
@@ -345,14 +386,71 @@
                 grid-template-columns: 1fr 1fr;
             }
         }
+
+        @media (max-width: 519px) {
+            .hero-header {
+                flex-wrap: wrap;
+            }
+
+            .hero-settings {
+                width: 100%;
+            }
+
+            .hero-settings summary {
+                width: 100%;
+            }
+
+            .hero-settings-panel {
+                left: 0;
+                right: auto;
+                width: 100%;
+            }
+        }
     </style>
 </head>
 
 <body>
     <main class="shell">
         <section class="hero">
-            <h1>CartPilot</h1>
-            <p>Local-model shopping assistant with deterministic cart automation.</p>
+            <div class="hero-header">
+                <div class="hero-copy">
+                    <h1>CartPilot</h1>
+                    <p>Local-model shopping assistant with deterministic cart automation.</p>
+                </div>
+
+                <details id="llmSettingsDetails" class="hero-settings">
+                    <summary>LLM Settings</summary>
+                    <div class="hero-settings-panel">
+                        <p class="section-title hero-settings-title">LLM Settings</p>
+                        <div class="llm-fields">
+                            <div class="grid">
+                                <label class="field">
+                                    <span>Ollama endpoint</span>
+                                    <input id="endpointInput" type="text"
+                                        placeholder="http://127.0.0.1:11434/api/generate" />
+                                </label>
+
+                                <label class="field">
+                                    <span>Model</span>
+                                    <div class="model-field">
+                                        <select id="modelInput">
+                                            <option value="" disabled selected>Select a model…</option>
+                                        </select>
+                                        <button id="refreshModelsButton" class="ghost" type="button"
+                                            title="Refresh model list">↻</button>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <label class="field">
+                                <span>Temperature</span>
+                                <input id="temperatureInput" type="number" min="0" max="1" step="0.1" />
+                            </label>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
             <div class="badges">
                 <span id="siteBadge" class="badge">Site: loading</span>
                 <span id="statusBadge" class="badge">Idle</span>
@@ -367,34 +465,6 @@
                 <textarea id="itemsInput" placeholder="milk, eggs, bread"></textarea>
             </label>
 
-            <details class="llm-settings">
-                <summary>LLM Settings</summary>
-                <div class="llm-fields">
-                    <div class="grid">
-                        <label class="field">
-                            <span>Ollama endpoint</span>
-                            <input id="endpointInput" type="text" placeholder="http://127.0.0.1:11434/api/generate" />
-                        </label>
-
-                        <label class="field">
-                            <span>Model</span>
-                            <div class="model-field">
-                                <select id="modelInput">
-                                    <option value="" disabled selected>Select a model…</option>
-                                </select>
-                                <button id="refreshModelsButton" class="ghost" type="button"
-                                    title="Refresh model list">↻</button>
-                            </div>
-                        </label>
-                    </div>
-
-                    <label class="field">
-                        <span>Temperature</span>
-                        <input id="temperatureInput" type="number" min="0" max="1" step="0.1" />
-                    </label>
-                </div>
-            </details>
-
             <div class="row">
                 <label class="toggle">
                     <input id="dryRunToggle" type="checkbox" />
@@ -402,10 +472,11 @@
                 </label>
             </div>
 
+            <p class="meta">Preferences save automatically.</p>
+
             <div class="actions">
                 <button id="startButton" class="primary" type="button">Start Cart Build</button>
                 <button id="cancelButton" class="secondary" type="button">Cancel</button>
-                <button id="saveButton" class="ghost" type="button">Save Settings</button>
             </div>
 
             <p id="feedbackText" class="feedback"></p>

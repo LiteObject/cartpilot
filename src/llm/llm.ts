@@ -24,6 +24,8 @@ interface CandidateScore {
     total: number;
 }
 
+type FallbackStage = "normalization" | "product selection";
+
 const COMMON_QUERY_HINTS: Record<string, string> = {
     milk: "whole milk 1 gallon",
     eggs: "large eggs dozen",
@@ -45,6 +47,26 @@ const CANONICAL_TEXT_REPLACEMENTS: Array<{ pattern: RegExp; replacement: string 
     { pattern: /\b(?:one\s+percent|1\s*percent)\b/gi, replacement: "1%" },
     { pattern: /\b(?:two\s+percent|2\s*percent)\b/gi, replacement: "2%" }
 ];
+const OLLAMA_EMPTY_RESPONSE_MESSAGE = "Ollama returned an empty response after retries.";
+
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
+function logFallback(stage: FallbackStage, error: unknown, details: Record<string, unknown>): void {
+    const reason = errorMessage(error);
+    const payload = {
+        reason,
+        ...details
+    };
+
+    if (reason === OLLAMA_EMPTY_RESPONSE_MESSAGE) {
+        console.debug(`CartPilot ${stage} fallback engaged.`, payload);
+        return;
+    }
+
+    console.warn(`CartPilot ${stage} fallback engaged.`, payload);
+}
 
 export function extractPriceIntent(rawItem: string): PriceIntentResult {
     const trimmed = rawItem.trim();
@@ -226,12 +248,14 @@ async function callOllamaJson<T>(prompt: string, config: LlmConfig): Promise<T> 
             throw new Error(lastPayload.error);
         }
 
-        if (lastPayload.response) {
-            return JSON.parse(lastPayload.response) as T;
+        const responseText = lastPayload.response?.trim();
+
+        if (responseText) {
+            return JSON.parse(responseText) as T;
         }
     }
 
-    throw new Error("Ollama returned an empty response after retries.");
+    throw new Error(OLLAMA_EMPTY_RESPONSE_MESSAGE);
 }
 
 export async function normalizeQuery(
@@ -266,7 +290,12 @@ export async function normalizeQuery(
             clarificationQuestion: normalizeWhitespace(result.clarification_question) || null
         };
     } catch (error) {
-        console.warn("CartPilot normalization fallback engaged.", error);
+        logFallback("normalization", error, {
+            item: rawItem,
+            hasExtraContext: Boolean(extraContext?.trim()),
+            endpoint: config.endpoint.trim() ? resolveGenerateEndpoint(config.endpoint) : null,
+            model: config.model.trim() || null
+        });
         return heuristicNormalize(rawItem, extraContext);
     }
 }
@@ -324,7 +353,14 @@ export async function selectProduct(
 
         return heuristicSelect(normalizedQuery, candidates);
     } catch (error) {
-        console.warn("CartPilot product selection fallback engaged.", error);
+        logFallback("product selection", error, {
+            item: rawItem,
+            normalizedQuery,
+            candidateCount: candidates.length,
+            endpoint: config.endpoint.trim() ? resolveGenerateEndpoint(config.endpoint) : null,
+            model: config.model.trim() || null,
+            priceIntent
+        });
         return heuristicSelect(normalizedQuery, candidates);
     }
 }

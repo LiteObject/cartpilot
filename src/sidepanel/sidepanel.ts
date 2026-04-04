@@ -5,6 +5,7 @@ import type { BootstrapData, ExtensionSettings, ItemResult, ProgressEvent, RunSt
 interface PanelElements {
     siteBadge: HTMLSpanElement;
     statusBadge: HTMLSpanElement;
+    llmSettingsDetails: HTMLDetailsElement;
     itemsInput: HTMLTextAreaElement;
     endpointInput: HTMLInputElement;
     modelInput: HTMLSelectElement;
@@ -12,7 +13,6 @@ interface PanelElements {
     dryRunToggle: HTMLInputElement;
     startButton: HTMLButtonElement;
     cancelButton: HTMLButtonElement;
-    saveButton: HTMLButtonElement;
     refreshModelsButton: HTMLButtonElement;
     feedbackText: HTMLParagraphElement;
     pendingPanel: HTMLElement;
@@ -31,6 +31,10 @@ interface PanelElements {
 let elements: PanelElements;
 let hydratedSettings = false;
 let lastFetchedEndpoint = "";
+let lastSavedSettingsSnapshot = "";
+let settingsSaveDebounce: ReturnType<typeof setTimeout> | null = null;
+let savingSettings: Promise<void> | null = null;
+let queuedSettingsSave = false;
 
 interface OllamaTagsResponse {
     models?: Array<{ name: string }>;
@@ -41,9 +45,79 @@ function resolveBaseUrl(endpoint: string): string {
     return normalized.replace(/\/api\/generate$/, "");
 }
 
-async function fetchAndPopulateModels(preserveSelection?: string): Promise<void> {
+function serializeSettings(settings: ExtensionSettings): string {
+    return JSON.stringify(settings);
+}
+
+async function persistSettingsIfNeeded(): Promise<void> {
+    if (!hydratedSettings) {
+        return;
+    }
+
+    const settings = readSettingsFromForm();
+    const snapshot = serializeSettings(settings);
+
+    if (snapshot === lastSavedSettingsSnapshot) {
+        return;
+    }
+
+    if (savingSettings) {
+        queuedSettingsSave = true;
+        return;
+    }
+
+    savingSettings = (async () => {
+        const currentSettings = readSettingsFromForm();
+        const currentSnapshot = serializeSettings(currentSettings);
+
+        if (currentSnapshot === lastSavedSettingsSnapshot) {
+            return;
+        }
+
+        const savedSettings = await sendMessage<ExtensionSettings>({
+            type: "SAVE_SETTINGS",
+            settings: currentSettings
+        });
+
+        lastSavedSettingsSnapshot = serializeSettings(savedSettings);
+        console.debug("CartPilot: settings auto-saved.");
+    })();
+
+    try {
+        await savingSettings;
+    } finally {
+        savingSettings = null;
+    }
+
+    if (queuedSettingsSave) {
+        queuedSettingsSave = false;
+        await persistSettingsIfNeeded();
+    }
+}
+
+function scheduleSettingsSave(delayMs = 350): void {
+    if (!hydratedSettings) {
+        return;
+    }
+
+    if (settingsSaveDebounce) {
+        clearTimeout(settingsSaveDebounce);
+    }
+
+    settingsSaveDebounce = setTimeout(() => {
+        settingsSaveDebounce = null;
+        void persistSettingsIfNeeded().catch((error) => setFeedback(String(error), "danger"));
+    }, delayMs);
+}
+
+async function fetchAndPopulateModels(preserveSelection?: string, saveAfterLoad = false): Promise<void> {
     const endpoint = elements.endpointInput.value.trim();
-    if (!endpoint) return;
+    if (!endpoint) {
+        if (saveAfterLoad) {
+            await persistSettingsIfNeeded();
+        }
+        return;
+    }
 
     const baseUrl = resolveBaseUrl(endpoint);
     const tagsUrl = `${baseUrl}/api/tags`;
@@ -99,6 +173,10 @@ async function fetchAndPopulateModels(preserveSelection?: string): Promise<void>
     } finally {
         elements.modelInput.disabled = false;
         elements.refreshModelsButton.disabled = false;
+    }
+
+    if (saveAfterLoad) {
+        await persistSettingsIfNeeded();
     }
 }
 
@@ -288,6 +366,7 @@ function renderPending(runState: RunState): void {
 function renderBootstrap(bootstrap: BootstrapData): void {
     if (!hydratedSettings) {
         applySettingsToForm(bootstrap.settings);
+        lastSavedSettingsSnapshot = serializeSettings(bootstrap.settings);
         hydratedSettings = true;
     }
 
@@ -341,27 +420,11 @@ function parseItems(): string[] {
         .filter(Boolean);
 }
 
-async function handleSaveSettings(): Promise<void> {
-    if (!elements.modelInput.value) {
-        setFeedback("Select an LLM model before saving.", "danger");
-        return;
-    }
-
-    const settings = readSettingsFromForm();
-    await sendMessage<ExtensionSettings>({ type: "SAVE_SETTINGS", settings });
-    setFeedback("Settings saved.", "success");
-}
-
 async function handleStartRun(): Promise<void> {
     const items = parseItems();
 
     if (items.length === 0) {
         setFeedback("Enter at least one grocery item.", "danger");
-        return;
-    }
-
-    if (!elements.modelInput.value) {
-        setFeedback("Select an LLM model before starting a run.", "danger");
         return;
     }
 
@@ -372,7 +435,12 @@ async function handleStartRun(): Promise<void> {
         settings
     });
     renderBootstrap(bootstrap);
-    setFeedback("Run started.", "success");
+    setFeedback(
+        elements.modelInput.value
+            ? "Run started."
+            : "Run started. No Ollama model is selected, so heuristic fallback is active.",
+        elements.modelInput.value ? "success" : "default"
+    );
 }
 
 async function handleCancelRun(): Promise<void> {
@@ -407,8 +475,19 @@ async function handleConfirmation(decision: "confirm" | "skip" | "cancel"): Prom
 }
 
 function bindEvents(): void {
-    elements.saveButton.addEventListener("click", () => {
-        void handleSaveSettings().catch((error) => setFeedback(String(error), "danger"));
+    document.addEventListener("click", (event) => {
+        if (!elements.llmSettingsDetails.open) return;
+
+        const target = event.target;
+        if (target instanceof Node && !elements.llmSettingsDetails.contains(target)) {
+            elements.llmSettingsDetails.open = false;
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && elements.llmSettingsDetails.open) {
+            elements.llmSettingsDetails.open = false;
+        }
     });
 
     elements.startButton.addEventListener("click", () => {
@@ -436,7 +515,7 @@ function bindEvents(): void {
     });
 
     elements.refreshModelsButton.addEventListener("click", () => {
-        void fetchAndPopulateModels(elements.modelInput.value).catch(() => { });
+        void fetchAndPopulateModels(elements.modelInput.value, true).catch((error) => setFeedback(String(error), "danger"));
     });
 
     let endpointDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -445,9 +524,33 @@ function bindEvents(): void {
         endpointDebounce = setTimeout(() => {
             const current = elements.endpointInput.value.trim();
             if (current && current !== lastFetchedEndpoint) {
-                void fetchAndPopulateModels(elements.modelInput.value).catch(() => { });
+                void fetchAndPopulateModels(elements.modelInput.value, true).catch((error) =>
+                    setFeedback(String(error), "danger")
+                );
+                return;
             }
+            scheduleSettingsSave(0);
         }, 600);
+    });
+
+    elements.endpointInput.addEventListener("change", () => {
+        scheduleSettingsSave(0);
+    });
+
+    elements.temperatureInput.addEventListener("input", () => {
+        scheduleSettingsSave(450);
+    });
+
+    elements.temperatureInput.addEventListener("change", () => {
+        scheduleSettingsSave(0);
+    });
+
+    elements.modelInput.addEventListener("change", () => {
+        scheduleSettingsSave(0);
+    });
+
+    elements.dryRunToggle.addEventListener("change", () => {
+        scheduleSettingsSave(0);
     });
 
     window.setInterval(() => {
@@ -459,6 +562,7 @@ function init(): void {
     elements = {
         siteBadge: getElement("siteBadge"),
         statusBadge: getElement("statusBadge"),
+        llmSettingsDetails: getElement("llmSettingsDetails"),
         itemsInput: getElement("itemsInput"),
         endpointInput: getElement("endpointInput"),
         modelInput: getElement("modelInput"),
@@ -466,7 +570,6 @@ function init(): void {
         dryRunToggle: getElement("dryRunToggle"),
         startButton: getElement("startButton"),
         cancelButton: getElement("cancelButton"),
-        saveButton: getElement("saveButton"),
         refreshModelsButton: getElement("refreshModelsButton"),
         feedbackText: getElement("feedbackText"),
         pendingPanel: getElement("pendingPanel"),

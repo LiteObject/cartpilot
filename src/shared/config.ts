@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
     llm: {
         provider: "ollama",
         endpoint: "http://127.0.0.1:11434/api/generate",
-        model: "",
+        model: "llama3.1:8b",
         temperature: 0.1
     },
     run: {
