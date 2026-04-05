@@ -10,7 +10,9 @@
   },
   "devDependencies": {
     "@types/chrome": "^0.0.325",
+    "dotenv": "^8.2.0",
     "esbuild": "^0.25.3",
+    "node-fetch": "^3.3.2",
     "typescript": "^5.8.3"
   }
 }

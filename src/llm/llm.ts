@@ -172,15 +172,7 @@ function heuristicSelect(normalizedQuery: string, candidates: ProductCandidate[]
     candidates.forEach((candidate, index) => {
         const score = scoreCandidate(normalizedQuery, candidate, priceIntent);
 
-        console.debug("CartPilot heuristic candidate score", {
-            index,
-            priceIntent,
-            title: candidate.title,
-            overlap: score.overlap,
-            coverage: score.coverage,
-            effectivePrice: score.effectivePrice,
-            total: score.total
-        });
+        console.debug(`CartPilot heuristic [${index}] "${candidate.title}" overlap=${score.overlap} coverage=${score.coverage.toFixed(2)} price=$${score.effectivePrice} total=${score.total.toFixed(1)}`);
 
         if (score.total > bestScore) {
             bestScore = score.total;
@@ -300,6 +292,62 @@ export async function normalizeQuery(
     }
 }
 
+function buildSelectionPrompt(
+    rawItem: string,
+    normalizedQuery: string,
+    candidates: ProductCandidate[],
+    priceIntent: PriceIntent
+): string {
+    const promptCandidates = candidates.map((candidate, index) => ({
+        index,
+        title: candidate.title,
+        price: candidate.price,
+        unitPrice: candidate.unitPrice,
+        rating: candidate.rating,
+        summary: candidate.summary,
+        productUrl: candidate.productUrl,
+        hasDirectAdd: candidate.hasDirectAdd
+    }));
+
+    const prompt = [
+        "You select the best grocery product for a Chrome extension.",
+        "Return JSON with keys: selected_index, needs_clarification, clarification_question, reason.",
+        "Rules:",
+        "- Ask for clarification only if the product list is too ambiguous.",
+        `Original item: ${rawItem}`,
+        `Normalized query: ${normalizedQuery}`
+    ];
+
+    if (priceIntent === "cheapest") {
+        prompt.push(
+            `Price intent: ${priceIntent}`,
+            "- Prioritize relevance first.",
+            "- Among relevant products, optimize for the lowest total price.",
+            "- Do not choose a clearly wrong product or pack size just because it is cheaper.",
+            "- Use rating as a tiebreaker when price and relevance are similar."
+        );
+    } else if (priceIntent === "cheapest-unit-price") {
+        prompt.push(
+            `Price intent: ${priceIntent}`,
+            "- Prioritize relevance first.",
+            "- Among relevant products, optimize for the lowest unitPrice.",
+            "- If unitPrice is missing, fall back to total price only when necessary.",
+            "- Do not choose a clearly wrong product or pack size just because it has a low unit price.",
+            "- Use rating as a tiebreaker when price efficiency and relevance are similar."
+        );
+    } else {
+        prompt.push(
+            "- Prioritize relevance first.",
+            "- Prefer lower price when products are similarly relevant.",
+            "- Prefer higher rating when products are similarly relevant."
+        );
+    }
+
+    prompt.push(`Candidates: ${JSON.stringify(promptCandidates)}`);
+
+    return prompt.join("\n");
+}
+
 export async function selectProduct(
     rawItem: string,
     normalizedQuery: string,
@@ -308,22 +356,10 @@ export async function selectProduct(
     priceIntent: PriceIntent = "none"
 ): Promise<ProductSelectionResult> {
     if (priceIntent !== "none") {
-        console.debug(`CartPilot: price intent "${priceIntent}" detected — using heuristic price-based selection.`);
-        return heuristicSelect(normalizedQuery, candidates, priceIntent);
+        console.debug(`CartPilot: price intent "${priceIntent}" detected — using price-aware LLM selection.`);
     }
 
-    const prompt = [
-        "You select the best grocery product for a Chrome extension.",
-        "Return JSON with keys: selected_index, needs_clarification, clarification_question, reason.",
-        "Rules:",
-        "- Prioritize relevance first.",
-        "- Prefer lower price when products are similarly relevant.",
-        "- Prefer higher rating when products are similarly relevant.",
-        "- Ask for clarification only if the product list is too ambiguous.",
-        `Original item: ${rawItem}`,
-        `Normalized query: ${normalizedQuery}`,
-        `Candidates: ${JSON.stringify(candidates)}`
-    ].join("\n");
+    const prompt = buildSelectionPrompt(rawItem, normalizedQuery, candidates, priceIntent);
 
     try {
         const result = await callOllamaJson<{
@@ -351,7 +387,7 @@ export async function selectProduct(
             };
         }
 
-        return heuristicSelect(normalizedQuery, candidates);
+        return heuristicSelect(normalizedQuery, candidates, priceIntent);
     } catch (error) {
         logFallback("product selection", error, {
             item: rawItem,
@@ -361,6 +397,6 @@ export async function selectProduct(
             model: config.model.trim() || null,
             priceIntent
         });
-        return heuristicSelect(normalizedQuery, candidates);
+        return heuristicSelect(normalizedQuery, candidates, priceIntent);
     }
 }

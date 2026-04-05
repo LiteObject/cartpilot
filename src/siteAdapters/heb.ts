@@ -15,12 +15,17 @@ export const hebAdapter = new GenericSiteAdapter({
     resultCardSelectors: [
         '[data-qe-id*="product-card"]',
         '[class*="product-card"]',
+        '[class*="basicGridItem"]',
         'article[data-product-id]',
         'div[role="listitem"]'
     ],
     titleSelectors: [
         '[data-qe-id*="product-title"]',
         '[class*="product-title"]',
+        '[class*="Title"]',
+        '[class*="productName"]',
+        'a[href*="/product-detail/"]',
+        'a[href*="/product/"]',
         'h2',
         'h3'
     ],
@@ -56,7 +61,12 @@ export const hebAdapter = new GenericSiteAdapter({
     ],
     readySelectors: [
         '[data-qe-id*="product-card"]',
-        'div[role="listitem"]'
+        '[class*="basicGridItem"]',
+        'div[role="listitem"]',
+        '[class*="basicGrid"]'
+    ],
+    gridContainerSelectors: [
+        '[class*="basicGrid"]:not([class*="basicGridItem"])'
     ],
     dismissButtonTexts: ["no thanks", "skip", "continue", "close"]
 });

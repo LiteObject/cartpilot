@@ -23,9 +23,48 @@ export function createId(prefix: string): string {
     return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function collectMatches<T extends Element>(
+    root: ParentNode,
+    selector: string,
+    results: T[],
+    visitedRoots: WeakSet<object>,
+    seenElements: Set<T>
+): void {
+    if (visitedRoots.has(root)) {
+        return;
+    }
+
+    visitedRoots.add(root);
+
+    const matches = Array.from(root.querySelectorAll<T>(selector));
+
+    for (const match of matches) {
+        if (seenElements.has(match)) {
+            continue;
+        }
+
+        seenElements.add(match);
+        results.push(match);
+    }
+
+    if (root instanceof Element && root.shadowRoot) {
+        collectMatches(root.shadowRoot, selector, results, visitedRoots, seenElements);
+    }
+
+    const descendants = Array.from(root.querySelectorAll<HTMLElement>("*"));
+
+    for (const descendant of descendants) {
+        if (descendant.shadowRoot) {
+            collectMatches(descendant.shadowRoot, selector, results, visitedRoots, seenElements);
+        }
+    }
+}
+
 export function queryFirst<T extends Element = HTMLElement>(selectors: string[], root: ParentNode = document): T | null {
     for (const selector of selectors) {
-        const match = root.querySelector<T>(selector);
+        const matches: T[] = [];
+        collectMatches(root, selector, matches, new WeakSet<object>(), new Set<T>());
+        const match = matches[0] ?? null;
 
         if (match) {
             return match;
@@ -37,7 +76,8 @@ export function queryFirst<T extends Element = HTMLElement>(selectors: string[],
 
 export function queryAll<T extends Element = HTMLElement>(selectors: string[], root: ParentNode = document): T[] {
     for (const selector of selectors) {
-        const matches = Array.from(root.querySelectorAll<T>(selector));
+        const matches: T[] = [];
+        collectMatches(root, selector, matches, new WeakSet<object>(), new Set<T>());
 
         if (matches.length > 0) {
             return matches;
@@ -91,7 +131,7 @@ export function findButtonByText(
     root: ParentNode = document
 ): HTMLButtonElement | HTMLAnchorElement | null {
     const normalizedOptions = textOptions.map((option) => option.toLowerCase());
-    const candidates = Array.from(root.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>("button, a[role='button'], a"));
+    const candidates = queryAll<HTMLButtonElement | HTMLAnchorElement>(["button, a[role='button'], a"], root);
 
     return (
         candidates.find((candidate) => {
